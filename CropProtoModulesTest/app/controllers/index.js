@@ -3,6 +3,7 @@ var cropModule = require("com.example.crop");
 var configuration = {
     overwrite       : false,
     renamePrefix    : "IWouldRatherPutThisPrefix_",
+    scaleUpIfNeeded : true
 };
 
 if (cropModule.configure(configuration)) 
@@ -17,10 +18,9 @@ var cropImage = function (showCameraEvent) {
                 Ti.API.info(result.imagePath);
                 $.imageView.image = result.imagePath;
             },
-            error: 14
-            //error: function(error) {
-            //    alert(error.message);
-            //}
+            error: function(error) {
+                alert(error.message);
+            }
         });
     } else {
         alert("Invalid media type");

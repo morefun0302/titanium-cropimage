@@ -27,6 +27,7 @@ import com.android.camera.CropImageIntentBuilder;
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
+import android.graphics.Color;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -36,6 +37,7 @@ import java.lang.ClassCastException;
 import java.lang.NoSuchMethodException;
 import java.lang.IllegalAccessException;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 @Kroll.module(name="CropPrototype", id="com.example.crop")
 public class CropPrototypeModule extends KrollModule
@@ -51,10 +53,18 @@ public class CropPrototypeModule extends KrollModule
     @Kroll.constant public static final String message      = "message";
 
     /* Options */
+    private boolean circleCrop      = false;
+    private boolean doFaceDetection = false;
+    private int     outlineColor    = 0xFF1DB7FF;
+    private String  outputFormat    = "JPEG";
+    private int     outputQuality   = 100;
+    private int     outputX         = 200;
+    private int     outputY         = 200;
     private boolean overwrite       = false;
-    private int     borderColor     = 0xFF03A9F4;
-    private String  renamePrefix    = "_cropped"; 
     private boolean quietMode       = true;
+    private String  renamePrefix    = "cropped_"; 
+    private boolean scale           = true;
+    private boolean scaleUpIfNeeded = true;
 
     /** Default constructor */
     public CropPrototypeModule() { super(); }
@@ -136,9 +146,17 @@ public class CropPrototypeModule extends KrollModule
             }
 
             /* Initialize the intent for the crop activity */
-            CropImageIntentBuilder intentBuilder = new CropImageIntentBuilder(200, 200, destFileUri); 
-            intentBuilder.setOutlineColor(borderColor);
+            CropImageIntentBuilder intentBuilder = new CropImageIntentBuilder(outputX, outputY, destFileUri); 
+            debugConfig();
             intentBuilder.setSourceImage(srcFileUri);
+            intentBuilder.setOutlineColor(outlineColor);
+            intentBuilder.setOutlineCircleColor(outlineColor);
+            intentBuilder.setCircleCrop(circleCrop);
+            intentBuilder.setScale(scale);
+            intentBuilder.setScaleUpIfNeeded(scaleUpIfNeeded);
+            intentBuilder.setDoFaceDetection(doFaceDetection);
+            intentBuilder.setOutputFormat(outputFormat);
+            intentBuilder.setOutputQuality(outputQuality);
 
             /* Get the current activity and call the intent */
             Activity mainActivity = TiApplication.getAppCurrentActivity(); 
@@ -197,29 +215,80 @@ public class CropPrototypeModule extends KrollModule
     }
 
     /* Configuration Setters */
+    /** circle crop option cetter, expecting a boolean
+     * If True, the cropper will be displayed as a circle and the corresponding
+     * cropped image will also be a circle
+     * @param value The value to set; expecting a boolean.
+     * */
+    @Kroll.setProperty public void setCircleCrop(Object value) {
+        circleCrop = ((Boolean) value).booleanValue();
+    }
+
+    /** do face detection  option cetter, expecting a boolean
+     * If True, the activity will try to identify face in the image and focus the crop
+     * selection on faces.
+     * @param value The value to set; expecting a boolean.
+     * */
+    @Kroll.setProperty public void setDoFaceDetection(Object value) {
+        doFaceDetection = ((Boolean) value).booleanValue();
+    }
+
+    /** outline color option setter, expecting a String, android color . 
+     * Set the color of the rectangle used during the crop, using android color format. 
+     * Exemple : #FF1DB7FF
+     * @param value The value to set; expecting a string android color.
+     * */
+    @Kroll.setProperty public void setOutlineColor(Object value) {
+        outlineColor = Color.parseColor(value.toString());
+    }
+
+    /** output format option setter, expecting a string JPEG, PNG or WEBP
+     * Specify the output format of the cropped image
+     * @param value The value to set; expecting a string in ('JPEG', 'PNG', 'WEBP')
+     * */
+    @Kroll.setProperty public void setOutputFormat(Object value) {
+        String format = value.toString();
+        if (!format.matches("^JPEG|PNG|WEBP$")) throw new IllegalArgumentException();
+        outputFormat = format; 
+    }
+
+    /** output quality option setter, expecting an integer between 0 and 100
+     * Only works with JPEG output format to specify the quality of the JPEG
+     * 0 = lowest quality, 100 = best quality
+     * @param value The value to set; An integer between 0 and 100.
+     * */
+    @Kroll.setProperty public void setOutputQuality(Object value) {
+        int quality = Integer.parseInt(value.toString());
+        if (!String.valueOf(quality).matches("^[0-9]{1,2}|100$")) throw new IllegalArgumentException();
+        outputQuality = quality;
+    }
+
+    /** output x option setter, expencting an integer
+     * Specify the width of the expected cropped output.
+     * @param value The value to set; expecting an integer.
+     * */
+    @Kroll.setProperty public void setOutputX(Object value) {
+        int x = Integer.parseInt(value.toString());
+        if (x <= 0) throw new IllegalArgumentException();
+        outputX = x;
+    }
+
+    /** output y option setter, expencting an integer
+     * Specify the height of the expected cropped output.
+     * @param value The value to set; expecting an integer.
+     * */
+    @Kroll.setProperty public void setOutputY(Object value) {
+        int y = Integer.parseInt(value.toString());
+        if (y <= 0) throw new IllegalArgumentException();
+        outputY = y;
+    }  
+
     /** overwrite option setter, expecting a boolean argument; 
      * if True, the source image will be overwritten with the cropped one. 
      * @param value The value to set; expecting a boolean.
      * */
     @Kroll.setProperty public void setOverwrite(Object value) {
         overwrite = ((Boolean) value).booleanValue();
-    }
-
-    /** border-color option setter, expecting an integer. 
-     * Set the color of the rectangle used during the crop, in hexadecimal with alpha levels. 
-     * Exemple : 0xFF03A9F4 
-     * @param value The value to set; expecting an hexidecimal integer value.
-     * */
-    @Kroll.setProperty public void setBorderColor(Object value) {
-        borderColor = ((Integer) value).intValue();
-    }
-
-    /** renamePrefix option setter, expecting a String.
-     * In case when overwritting is set to false, used to rename the input 
-     * @param value The value to set; expecting a String value.
-     * */
-    @Kroll.setProperty public void setRenamePrefix(Object value) {
-        renamePrefix = value.toString();
     }
 
     /** quietMode option setter, expecting a boolean argument; 
@@ -231,4 +300,37 @@ public class CropPrototypeModule extends KrollModule
         quietMode = ((Boolean) value).booleanValue();
     }
 
+    /** renamePrefix option setter, expecting a String.
+     * In case when overwritting is set to false, used to rename the input 
+     * @param value The value to set; expecting a String value.
+     * */
+    @Kroll.setProperty public void setRenamePrefix(Object value) {
+        renamePrefix = value.toString();
+    }
+    
+    /** scale  option cetter, expecting a boolean
+     * If True, scale down the image to fit the cropped output
+     * @param value The value to set; expecting a boolean.
+     * */
+    @Kroll.setProperty public void setScale(Object value) {
+        scale = ((Boolean) value).booleanValue();
+    }
+
+    /** scale if needed  option cetter, expecting a boolean
+     * If True, scale up the image to fit the cropped output size
+     * @param value The value to set; expecting a boolean.
+     * */
+    @Kroll.setProperty public void setScaleUpIfNeeded(Object value) {
+        scaleUpIfNeeded = ((Boolean) value).booleanValue();
+    }
+
+    private void debugConfig() throws Exception {
+      System.out.println("============= DEBUG CONFIG ==============");
+        for(Method m : this.getClass().getDeclaredMethods()) {
+            if (m.getName().matches("^set.*")) {
+                String field = m.getName().substring(3,4).toLowerCase() + m.getName().substring(4);
+                System.out.println(field + " : " + this.getClass().getDeclaredField(field).get(this).toString());
+            }
+        }
+    }
 }
