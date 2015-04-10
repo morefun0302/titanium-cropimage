@@ -30,6 +30,12 @@ import android.net.Uri;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.lang.Boolean;
+import java.lang.Integer;
+import java.lang.ClassCastException;
+import java.lang.NoSuchMethodException;
+import java.lang.IllegalAccessException;
+import java.lang.reflect.InvocationTargetException;
 
 @Kroll.module(name="CropPrototype", id="com.example.crop")
 public class CropPrototypeModule extends KrollModule
@@ -38,33 +44,90 @@ public class CropPrototypeModule extends KrollModule
     private static final String LCAT = "CropPrototypeModule"; 
     private static final boolean DBG = TiConfig.LOGD;
 
-    /** 
-     * Default constructor
-     * */
+    /* Keys Constants Values */
+    @Kroll.constant public static final String imagePath    = "imagePath";
+    @Kroll.constant public static final String onSuccess    = "success";
+    @Kroll.constant public static final String onError      = "error";
+    @Kroll.constant public static final String message      = "message";
+
+    /* Options */
+    private boolean overwrite       = false;
+    private int     borderColor     = 0xFF03A9F4;
+    private String  renamePrefix    = "_cropped"; 
+    private boolean quietMode       = true;
+
+    /** Default constructor */
     public CropPrototypeModule() { super(); }
+
+    /**
+     * Configure the module before using. 
+     * */
+    @Kroll.method public boolean configure(KrollDict options)
+    {
+        try {
+            for (String k : options.keySet()) {
+                this.getClass()
+                    .getDeclaredMethod("set"+ k.substring(0,1).toUpperCase() + k.substring(1), Object.class)
+                    .invoke(this, options.get(k));
+            }
+        } catch (NoSuchMethodException e) {
+            logError("Invalid option key; Please check the supplied options");
+            return false;
+        } catch (IllegalAccessException e) {
+            logError("Invalid option key; Please check the supplied options");
+            return false;
+        } catch (InvocationTargetException e) {
+            /* Come from a ClassCastException in the setters */
+            logError("Invalid option type; Please check the supplied options");
+            return false;
+        }
+        return true;
+    }
 
     /** 
      * Use to crop an image selected.  
      * Returns are processed via callbacks that handle a single object
-     * @param srcFileUrl    The picture file that should be cropped.
-     * @param overwrite     If True, the srcFile supplied will be overwritten by the cropped one.
-     * @param callbacks     Titanium callbacks that will handle function ends;
-     *      Two function are expected, identified with key "success" and "error".
+     * @param options Handle all options and data supplied to the function.
+     *      Expected options : 
+     *          imagePath   - str       : Path to the image to crop
+     *          success     - function  : Success callback
+     *          error       - function  : Error callback
      * */
-    @Kroll.method public void cropImage(String srcFileUrl, boolean overwrite, KrollDict callbacks) 
+    @Kroll.method public void cropImage(KrollDict options) 
     {
-        CropResultHandler cropResultHandler = new CropResultHandler(callbacks);
+        /* Check if the path is there */
+        if (quietMode && !(options.containsKey(imagePath))) {
+            logError("Path to the source image is missing");
+            return;
+        }
+        String srcFileUrl = options.get(imagePath).toString();
+
+        /* Be sure that callbacks exist and are valid KrollFunction */
+        if (quietMode && !(options.containsKey(onSuccess) && options.containsKey(onError))) {
+            logError("Callbacks are missing");
+            return;
+        }
+
+        KrollFunction success, error; 
+        try { 
+            success = (KrollFunction) options.get(onSuccess);
+            error = (KrollFunction) options.get(onError);
+        } catch (ClassCastException e) {
+            if(!quietMode) throw e;
+            logError("Callbacks are invalid. Please specify valid JavaSript functions");
+            return;
+        }
+        CropResultHandler cropResultHandler = new CropResultHandler(success, error);
+
         try {
             if(DBG) Log.d(LCAT, "Starting cropImage");
 
-            /* Verify the input */
-            Uri srcFileUri = Uri.parse(srcFileUrl);
-
             /* Define the output URI*/ 
+            Uri srcFileUri = Uri.parse(srcFileUrl);
             Uri destFileUri = srcFileUri;
             if (!overwrite) {
-              String filename = ( new File(srcFileUri.toString()) ).getName();
-              destFileUri = Uri.parse(srcFileUrl.replaceFirst(filename, "cropped_" + filename));
+                String filename = ( new File(srcFileUri.toString()) ).getName();
+                destFileUri = Uri.parse(srcFileUrl.replaceFirst(filename, renamePrefix + filename));
             }
             
             if(DBG) {
@@ -74,7 +137,7 @@ public class CropPrototypeModule extends KrollModule
 
             /* Initialize the intent for the crop activity */
             CropImageIntentBuilder intentBuilder = new CropImageIntentBuilder(200, 200, destFileUri); 
-            intentBuilder.setOutlineColor(0xFF03A9F4); // Should be exported in a conf/init method
+            intentBuilder.setOutlineColor(borderColor);
             intentBuilder.setSourceImage(srcFileUri);
 
             /* Get the current activity and call the intent */
@@ -95,17 +158,18 @@ public class CropPrototypeModule extends KrollModule
         private KrollFunction successCallback, errorCallback;
         private KrollDict callbackArgs; 
 
-        public CropResultHandler(KrollDict callbacks){
+        public CropResultHandler(KrollFunction successCallback, KrollFunction errorCallback)
+        {
             /* Declare all callbacks for further purpose */
-            successCallback  = (KrollFunction) callbacks.get("success"); 
-            errorCallback    = (KrollFunction) callbacks.get("error");
+            this.successCallback  = successCallback;
+            this.errorCallback    = errorCallback;
             callbackArgs = new KrollDict(); 
         }
 
         public void handleError(Exception e)
         {
             if(DBG) Log.d(LCAT, "An error has occured");
-            callbackArgs.put("message", e.getMessage());
+            callbackArgs.put(message, e.getMessage());
             errorCallback.callAsync((KrollObject) errorCallback, callbackArgs);
         }
    
@@ -121,8 +185,50 @@ public class CropPrototypeModule extends KrollModule
                 return;
             }
 
-            callbackArgs.put("imagePath", data.getAction()); 
+            callbackArgs.put(imagePath, data.getAction()); 
             successCallback.callAsync((KrollObject) successCallback, callbackArgs); 
         }
     }
+
+    /* Log an error into Titanium's console */
+    private void logError (String errorMsg) 
+    {
+      Log.e(LCAT, "\n/!\\ ------------------------ /!\\\n" + errorMsg);
+    }
+
+    /* Configuration Setters */
+    /** overwrite option setter, expecting a boolean argument; 
+     * if True, the source image will be overwritten with the cropped one. 
+     * @param value The value to set; expecting a boolean.
+     * */
+    @Kroll.setProperty public void setOverwrite(Object value) {
+        overwrite = ((Boolean) value).booleanValue();
+    }
+
+    /** border-color option setter, expecting an integer. 
+     * Set the color of the rectangle used during the crop, in hexadecimal with alpha levels. 
+     * Exemple : 0xFF03A9F4 
+     * @param value The value to set; expecting an hexidecimal integer value.
+     * */
+    @Kroll.setProperty public void setBorderColor(Object value) {
+        borderColor = ((Integer) value).intValue();
+    }
+
+    /** renamePrefix option setter, expecting a String.
+     * In case when overwritting is set to false, used to rename the input 
+     * @param value The value to set; expecting a String value.
+     * */
+    @Kroll.setProperty public void setRenamePrefix(Object value) {
+        renamePrefix = value.toString();
+    }
+
+    /** quietMode option setter, expecting a boolean argument; 
+     * if True, errors that can't be passed through the error callback might be caught 
+     * and handled via console error messages, rather than making the app crash 
+     * @param value The value to set; expecting a boolean value.
+     * */
+    @Kroll.setProperty public void setQuietMode(Object value) {
+        quietMode = ((Boolean) value).booleanValue();
+    }
+
 }

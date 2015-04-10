@@ -1,27 +1,36 @@
-var myModule = require("com.example.crop");
+var cropModule = require("com.example.crop");
+
+var configuration = {
+    overwrite       : false,
+    renamePrefix    : "IWouldRatherPutThisPrefix_",
+};
+
+if (cropModule.configure(configuration)) 
+    Ti.API.info("Module configured successfully");
+
+
+var cropImage = function (showCameraEvent) {
+    if (showCameraEvent.mediaType == Ti.Media.MEDIA_TYPE_PHOTO) {
+        cropModule.cropImage({
+            imagePath: showCameraEvent.media.getNativePath(),
+            success: function(result) {
+                Ti.API.info(result.imagePath);
+                $.imageView.image = result.imagePath;
+            },
+            error: 14
+            //error: function(error) {
+            //    alert(error.message);
+            //}
+        });
+    } else {
+        alert("Invalid media type");
+    }
+};
 
 function selectImage() {
     Titanium.Media.showCamera({
-        success: function(event) {
-            if (event.mediaType == Ti.Media.MEDIA_TYPE_PHOTO) {
-                myModule.cropImage(
-                    event.media.getNativePath(),
-                    false, //Overwrite the previous file
-                    {
-                        success: function(result) {
-                            $.imageView.image = result.imagePath;
-                        },
-                        error: function(error) {
-                            alert(error.message);
-                        }
-                    });
-            } else {
-                alert("Invalid media type");
-            }
-        },
-
+        success: cropImage,
         cancel: function(){},
-
         error: function(error) {
             alert("An error occured : " + error.code);
         },
