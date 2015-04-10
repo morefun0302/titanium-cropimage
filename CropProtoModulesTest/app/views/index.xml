@@ -1,0 +1,6 @@
+<Alloy>
+	<Window class="container">
+        <Button id="selectImage" title="Select an Image" onClick="selectImage" />
+        <ImageView id="imageView" borderColor="black" />
+    </Window>
+</Alloy>
