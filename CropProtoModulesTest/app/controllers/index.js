@@ -3,7 +3,7 @@ var cropModule = require("com.example.crop");
 var configuration = {
     overwrite       : false,
     renamePrefix    : "IWouldRatherPutThisPrefix_",
-    scaleUpIfNeeded : true
+    outputX         : 400
 };
 
 if (cropModule.configure(configuration)) 

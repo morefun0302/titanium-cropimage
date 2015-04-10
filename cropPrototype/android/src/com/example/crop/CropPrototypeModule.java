@@ -66,6 +66,18 @@ public class CropPrototypeModule extends KrollModule
     private boolean scale           = true;
     private boolean scaleUpIfNeeded = true;
 
+    /* I/O Uri */
+    private Uri srcFileUri, destFileUri;
+
+    /* Error messages */
+    protected class Errors {
+        public static final String INVALID_KEY       = "Invalid option key; Please check the supplied options";
+        public static final String INVALID_TYPE      = "Invalid option type; Please check the supplied options";
+        public static final String MISSING_PATH      = "Path to the source image is missing";
+        public static final String MISSING_CALLBACKS = "Callbacks are missing";
+        public static final String INVALID_CALLBACKS = "Callbacks are invalid. Please specify valid JavaSript functions";
+    }
+
     /** Default constructor */
     public CropPrototypeModule() { super(); }
 
@@ -81,14 +93,14 @@ public class CropPrototypeModule extends KrollModule
                     .invoke(this, options.get(k));
             }
         } catch (NoSuchMethodException e) {
-            logError("Invalid option key; Please check the supplied options");
+            logError(Errors.INVALID_KEY);
             return false;
         } catch (IllegalAccessException e) {
-            logError("Invalid option key; Please check the supplied options");
+            logError(Errors.INVALID_KEY);
             return false;
         } catch (InvocationTargetException e) {
             /* Come from a ClassCastException in the setters */
-            logError("Invalid option type; Please check the supplied options");
+            logError(Errors.INVALID_TYPE);
             return false;
         }
         return true;
@@ -107,14 +119,14 @@ public class CropPrototypeModule extends KrollModule
     {
         /* Check if the path is there */
         if (quietMode && !(options.containsKey(imagePath))) {
-            logError("Path to the source image is missing");
+            logError(Errors.MISSING_PATH);
             return;
         }
         String srcFileUrl = options.get(imagePath).toString();
 
         /* Be sure that callbacks exist and are valid KrollFunction */
         if (quietMode && !(options.containsKey(onSuccess) && options.containsKey(onError))) {
-            logError("Callbacks are missing");
+            logError(Errors.MISSING_CALLBACKS);
             return;
         }
 
@@ -124,7 +136,7 @@ public class CropPrototypeModule extends KrollModule
             error = (KrollFunction) options.get(onError);
         } catch (ClassCastException e) {
             if(!quietMode) throw e;
-            logError("Callbacks are invalid. Please specify valid JavaSript functions");
+            logError(Errors.INVALID_CALLBACKS);
             return;
         }
         CropResultHandler cropResultHandler = new CropResultHandler(success, error);
@@ -133,8 +145,8 @@ public class CropPrototypeModule extends KrollModule
             if(DBG) Log.d(LCAT, "Starting cropImage");
 
             /* Define the output URI*/ 
-            Uri srcFileUri = Uri.parse(srcFileUrl);
-            Uri destFileUri = srcFileUri;
+            srcFileUri = Uri.parse(srcFileUrl);
+            destFileUri = srcFileUri;
             if (!overwrite) {
                 String filename = ( new File(srcFileUri.toString()) ).getName();
                 destFileUri = Uri.parse(srcFileUrl.replaceFirst(filename, renamePrefix + filename));
@@ -146,8 +158,7 @@ public class CropPrototypeModule extends KrollModule
             }
 
             /* Initialize the intent for the crop activity */
-            CropImageIntentBuilder intentBuilder = new CropImageIntentBuilder(outputX, outputY, destFileUri); 
-            debugConfig();
+            CropImageIntentBuilder intentBuilder = new CropImageIntentBuilder(outputX, outputY, outputX, outputY, destFileUri); 
             intentBuilder.setSourceImage(srcFileUri);
             intentBuilder.setOutlineColor(outlineColor);
             intentBuilder.setOutlineCircleColor(outlineColor);
@@ -157,6 +168,7 @@ public class CropPrototypeModule extends KrollModule
             intentBuilder.setDoFaceDetection(doFaceDetection);
             intentBuilder.setOutputFormat(outputFormat);
             intentBuilder.setOutputQuality(outputQuality);
+            if(DBG) debugConfig();
 
             /* Get the current activity and call the intent */
             Activity mainActivity = TiApplication.getAppCurrentActivity(); 
@@ -178,7 +190,6 @@ public class CropPrototypeModule extends KrollModule
 
         public CropResultHandler(KrollFunction successCallback, KrollFunction errorCallback)
         {
-            /* Declare all callbacks for further purpose */
             this.successCallback  = successCallback;
             this.errorCallback    = errorCallback;
             callbackArgs = new KrollDict(); 
@@ -196,14 +207,12 @@ public class CropPrototypeModule extends KrollModule
           handleError(e);
         }
 
+        /* Handle the result, i.e. return the output path. If the action have been canceled, then, 
+         * the source path is returned */
         public void onResult(Activity activity, int requestCode, int resultCode, Intent data)
         {
-            if (resultCode == Activity.RESULT_CANCELED) {
-                handleError(new Exception("Crop has been aborted by the User"));  
-                return;
-            }
-
-            callbackArgs.put(imagePath, data.getAction()); 
+            String outputUrl = resultCode == Activity.RESULT_CANCELED ? srcFileUri.toString() : data.getAction();
+            callbackArgs.put(imagePath, outputUrl); 
             successCallback.callAsync((KrollObject) successCallback, callbackArgs); 
         }
     }
