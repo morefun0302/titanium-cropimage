@@ -1,0 +1,21 @@
+#
+# this is your module manifest and used by Titanium
+# during compilation, packaging, distribution, etc.
+#
+version: 1.0.0
+apiversion: 2
+architectures: armeabi armeabi-v7a x86
+description: cropimage
+author: Matthias Benkort
+license: Specify your license
+copyright: Copyright (c) 2015 by Your Company
+
+# External module with res folder
+respackage: com.android.camera 
+
+# these should not be edited
+name: cropimage
+moduleid: proto.cropimage
+guid: 3900232d-15a3-435f-b76a-705b2765cbce
+platform: android
+minsdk: 3.5.1.GA

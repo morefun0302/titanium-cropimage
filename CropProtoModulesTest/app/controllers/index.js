@@ -1,4 +1,4 @@
-var cropModule = require("com.example.crop");
+var cropModule = require("proto.cropimage");
 
 var configuration = {
     overwrite       : false,
