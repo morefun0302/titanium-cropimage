@@ -43,7 +43,7 @@ import java.lang.reflect.Method;
 public class CropimageModule extends KrollModule
 {
 	// Standard Debugging variables
-    private static final String LCAT = "CropimageModule"; 
+    private static final String LCAT = "CropimageModule";
     private static final boolean DBG = TiConfig.LOGD;
 
     /* Keys Constants Values */
@@ -62,7 +62,7 @@ public class CropimageModule extends KrollModule
     private int     outputY         = 200;
     private boolean overwrite       = false;
     private boolean quietMode       = true;
-    private String  renamePrefix    = "cropped_"; 
+    private String  renamePrefix    = "cropped_";
     private boolean scale           = true;
     private boolean scaleUpIfNeeded = true;
 
@@ -82,7 +82,7 @@ public class CropimageModule extends KrollModule
     public CropimageModule() { super(); }
 
     /**
-     * Configure the module before using. 
+     * Configure the module before using.
      * */
     @Kroll.method public boolean configure(KrollDict options)
     {
@@ -106,16 +106,16 @@ public class CropimageModule extends KrollModule
         return true;
     }
 
-    /** 
-     * Use to crop an image selected.  
+    /**
+     * Use to crop an image selected.
      * Returns are processed via callbacks that handle a single object
      * @param options Handle all options and data supplied to the function.
-     *      Expected options : 
+     *      Expected options :
      *          imagePath   - str       : Path to the image to crop
      *          success     - function  : Success callback
      *          error       - function  : Error callback
      * */
-    @Kroll.method public void cropImage(KrollDict options) 
+    @Kroll.method public void cropImage(KrollDict options)
     {
         /* Check if the path is there */
         if (quietMode && !(options.containsKey(imagePath))) {
@@ -130,8 +130,8 @@ public class CropimageModule extends KrollModule
             return;
         }
 
-        KrollFunction success, error; 
-        try { 
+        KrollFunction success, error;
+        try {
             success = (KrollFunction) options.get(onSuccess);
             error = (KrollFunction) options.get(onError);
         } catch (ClassCastException e) {
@@ -144,21 +144,21 @@ public class CropimageModule extends KrollModule
         try {
             if(DBG) Log.d(LCAT, "Starting cropImage");
 
-            /* Define the output URI*/ 
+            /* Define the output URI*/
             srcFileUri = Uri.parse(srcFileUrl);
             destFileUri = srcFileUri;
             if (!overwrite) {
                 String filename = ( new File(srcFileUri.toString()) ).getName();
                 destFileUri = Uri.parse(srcFileUrl.replaceFirst(filename, renamePrefix + filename));
             }
-            
+
             if(DBG) {
                 Log.d(LCAT, "Source file : " + srcFileUri.toString());
                 Log.d(LCAT, "Destination file : " + destFileUri.toString());
             }
 
             /* Initialize the intent for the crop activity */
-            CropImageIntentBuilder intentBuilder = new CropImageIntentBuilder(outputX, outputY, outputX, outputY, destFileUri); 
+            CropImageIntentBuilder intentBuilder = new CropImageIntentBuilder(outputX, outputY, outputX, outputY, destFileUri);
             intentBuilder.setSourceImage(srcFileUri);
             intentBuilder.setOutlineColor(outlineColor);
             intentBuilder.setOutlineCircleColor(outlineColor);
@@ -171,12 +171,12 @@ public class CropimageModule extends KrollModule
             if(DBG) debugConfig();
 
             /* Get the current activity and call the intent */
-            Activity mainActivity = TiApplication.getAppCurrentActivity(); 
+            Activity mainActivity = TiApplication.getAppCurrentActivity();
             TiActivitySupport mainActivitySupport = (TiActivitySupport) mainActivity;
             mainActivitySupport.launchActivityForResult(
                 intentBuilder.getIntent(mainActivity),
-                mainActivitySupport.getUniqueResultCode(), 
-                cropResultHandler); 
+                mainActivitySupport.getUniqueResultCode(),
+                cropResultHandler);
 
         } catch (Exception e) {
             cropResultHandler.handleError(e);
@@ -186,13 +186,13 @@ public class CropimageModule extends KrollModule
     protected class CropResultHandler implements TiActivityResultHandler
     {
         private KrollFunction successCallback, errorCallback;
-        private KrollDict callbackArgs; 
+        private KrollDict callbackArgs;
 
         public CropResultHandler(KrollFunction successCallback, KrollFunction errorCallback)
         {
             this.successCallback  = successCallback;
             this.errorCallback    = errorCallback;
-            callbackArgs = new KrollDict(); 
+            callbackArgs = new KrollDict();
         }
 
         public void handleError(Exception e)
@@ -201,30 +201,30 @@ public class CropimageModule extends KrollModule
             callbackArgs.put(message, e.getMessage());
             errorCallback.callAsync((KrollObject) errorCallback, callbackArgs);
         }
-   
-        public void onError(Activity activity, int requestCode, Exception e) 
+
+        public void onError(Activity activity, int requestCode, Exception e)
         {
           handleError(e);
         }
 
-        /* Handle the result, i.e. return the output path. If the action have been canceled, then, 
+        /* Handle the result, i.e. return the output path. If the action have been canceled, then,
          * the source path is returned */
         public void onResult(Activity activity, int requestCode, int resultCode, Intent data)
         {
             String outputUrl = resultCode == Activity.RESULT_CANCELED ? srcFileUri.toString() : data.getAction();
-            callbackArgs.put(imagePath, outputUrl); 
-            successCallback.callAsync((KrollObject) successCallback, callbackArgs); 
+            callbackArgs.put(imagePath, outputUrl);
+            successCallback.callAsync((KrollObject) successCallback, callbackArgs);
         }
     }
 
     /* Log an error into Titanium's console */
-    private void logError (String errorMsg) 
+    private void logError (String errorMsg)
     {
       Log.e(LCAT, "\n/!\\ ------------------------ /!\\\n" + errorMsg);
     }
 
     /* Configuration Setters */
-    /** circle crop option cetter, expecting a boolean
+    /** circle crop option setter, expecting a boolean
      * If True, the cropper will be displayed as a circle and the corresponding
      * cropped image will also be a circle
      * @param value The value to set; expecting a boolean.
@@ -233,7 +233,7 @@ public class CropimageModule extends KrollModule
         circleCrop = ((Boolean) value).booleanValue();
     }
 
-    /** do face detection  option cetter, expecting a boolean
+    /** do face detection  option setter, expecting a boolean
      * If True, the activity will try to identify face in the image and focus the crop
      * selection on faces.
      * @param value The value to set; expecting a boolean.
@@ -242,8 +242,8 @@ public class CropimageModule extends KrollModule
         doFaceDetection = ((Boolean) value).booleanValue();
     }
 
-    /** outline color option setter, expecting a String, android color . 
-     * Set the color of the rectangle used during the crop, using android color format. 
+    /** outline color option setter, expecting a String, android color .
+     * Set the color of the rectangle used during the crop, using android color format.
      * Exemple : #FF1DB7FF
      * @param value The value to set; expecting a string android color.
      * */
@@ -258,7 +258,7 @@ public class CropimageModule extends KrollModule
     @Kroll.setProperty public void setOutputFormat(Object value) {
         String format = value.toString();
         if (!format.matches("^JPEG|PNG|WEBP$")) throw new IllegalArgumentException();
-        outputFormat = format; 
+        outputFormat = format;
     }
 
     /** output quality option setter, expecting an integer between 0 and 100
@@ -290,19 +290,19 @@ public class CropimageModule extends KrollModule
         int y = Integer.parseInt(value.toString());
         if (y <= 0) throw new IllegalArgumentException();
         outputY = y;
-    }  
+    }
 
-    /** overwrite option setter, expecting a boolean argument; 
-     * if True, the source image will be overwritten with the cropped one. 
+    /** overwrite option setter, expecting a boolean argument;
+     * if True, the source image will be overwritten with the cropped one.
      * @param value The value to set; expecting a boolean.
      * */
     @Kroll.setProperty public void setOverwrite(Object value) {
         overwrite = ((Boolean) value).booleanValue();
     }
 
-    /** quietMode option setter, expecting a boolean argument; 
-     * if True, errors that can't be passed through the error callback might be caught 
-     * and handled via console error messages, rather than making the app crash 
+    /** quietMode option setter, expecting a boolean argument;
+     * if True, errors that can't be passed through the error callback might be caught
+     * and handled via console error messages, rather than making the app crash
      * @param value The value to set; expecting a boolean value.
      * */
     @Kroll.setProperty public void setQuietMode(Object value) {
@@ -310,14 +310,14 @@ public class CropimageModule extends KrollModule
     }
 
     /** renamePrefix option setter, expecting a String.
-     * In case when overwritting is set to false, used to rename the input 
+     * In case when overwritting is set to false, used to rename the input
      * @param value The value to set; expecting a String value.
      * */
     @Kroll.setProperty public void setRenamePrefix(Object value) {
         renamePrefix = value.toString();
     }
-    
-    /** scale  option cetter, expecting a boolean
+
+    /** scale  option setter, expecting a boolean
      * If True, scale down the image to fit the cropped output
      * @param value The value to set; expecting a boolean.
      * */
@@ -325,7 +325,7 @@ public class CropimageModule extends KrollModule
         scale = ((Boolean) value).booleanValue();
     }
 
-    /** scale if needed  option cetter, expecting a boolean
+    /** scale if needed  option setter, expecting a boolean
      * If True, scale up the image to fit the cropped output size
      * @param value The value to set; expecting a boolean.
      * */
